@@ -118,6 +118,33 @@ export interface AnswerResponse {
   error: string | null;
 }
 
+export interface EvalItem {
+  question: string;
+  expected_document: string;
+  expected_section: string;
+  passed: boolean;
+  retrieved: Source;
+}
+
+export interface GuardrailItem {
+  question: string;
+  declined: boolean;
+  top_score: number;
+}
+
+export interface EvalReport {
+  passed: number;
+  total: number;
+  embedding_provider: string;
+  min_score: number;
+  items: EvalItem[];
+  guardrail: GuardrailItem[];
+}
+
+export function getEvals(): Promise<EvalReport> {
+  return getJson<EvalReport>("/api/evals");
+}
+
 export async function askQuestion(
   question: string,
   conversationId?: number | null,

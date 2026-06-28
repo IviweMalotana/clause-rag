@@ -75,6 +75,29 @@ class AnswerResponse(BaseModel):
     error: str | None = None
 
 
+class EvalItem(BaseModel):
+    question: str
+    expected_document: str
+    expected_section: str
+    passed: bool
+    retrieved: Source
+
+
+class GuardrailItem(BaseModel):
+    question: str
+    declined: bool
+    top_score: float
+
+
+class EvalReport(BaseModel):
+    passed: int
+    total: int
+    embedding_provider: str
+    min_score: float
+    items: list[EvalItem]
+    guardrail: list[GuardrailItem]
+
+
 class MessageOut(BaseModel):
     id: int
     role: str

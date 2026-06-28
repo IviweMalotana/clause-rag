@@ -51,6 +51,19 @@ const NAV: NavItem[] = [
       />
     ),
   },
+  {
+    href: "/trust",
+    label: "Trust & evals",
+    icon: (
+      <path
+        d="M10 3.5 4.5 5.5v4c0 3 2.3 5.3 5.5 6.5 3.2-1.2 5.5-3.5 5.5-6.5v-4L10 3.5Z M7.5 9.5 9.3 11.3 12.5 8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
 ];
 
 export function Sidebar() {
