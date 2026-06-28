@@ -1,0 +1,30 @@
+[
+  {
+    "slug": "aml-policy",
+    "file": "aml-policy.md",
+    "title": "Anti-Money Laundering (AML) Policy",
+    "doc_type": "AML Policy",
+    "summary": "Firm-wide framework for preventing money laundering, terrorist financing, and sanctions evasion across the customer lifecycle."
+  },
+  {
+    "slug": "kyc-procedure",
+    "file": "kyc-procedure.md",
+    "title": "Know Your Customer (KYC) Onboarding Procedure",
+    "doc_type": "KYC Procedure",
+    "summary": "How new customers are identified and verified at onboarding, including CDD, EDD, and PEP handling."
+  },
+  {
+    "slug": "pci-checklist",
+    "file": "pci-checklist.md",
+    "title": "Cardholder Data Security Checklist (PCI-Aligned)",
+    "doc_type": "Security Checklist",
+    "summary": "Controls for storing, transmitting, and protecting cardholder data, aligned to PCI DSS principles."
+  },
+  {
+    "slug": "refunds-policy",
+    "file": "refunds-policy.md",
+    "title": "Customer Refunds and Chargebacks Policy",
+    "doc_type": "Operations Policy",
+    "summary": "When and how refunds are issued, approval thresholds, fraud controls, and chargeback handling."
+  }
+]
