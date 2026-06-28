@@ -103,7 +103,7 @@ export default function AskPage() {
         />
       ))}
 
-      <div className="fixed bottom-0 left-60 right-0 border-t border-border bg-bg/90 px-8 py-4 backdrop-blur">
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-bg/90 px-5 py-4 backdrop-blur sm:px-8 lg:left-60">
         <div className="mx-auto max-w-5xl">
           <Composer
             value={input}

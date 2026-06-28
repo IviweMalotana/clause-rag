@@ -71,6 +71,23 @@ def main() -> None:
     print(f"messages={len(conv.messages)} assistant_citations={len(assistant.citations)}")
     assert len(assistant.citations) == 2
 
+    print("\n== 6. Multi-turn follow-up carries history into the prompt ==")
+    captured = {}
+
+    def capturing_stub(system: str, user: str) -> str:
+        captured["prompt"] = user
+        return "Beneficial owners holding 25% or more must be verified [1]."
+
+    r6 = generate_answer(
+        db,
+        "What about for businesses?",
+        conversation_id=conv_id,
+        claude=capturing_stub,
+    )
+    has_history = "Conversation so far:" in captured.get("prompt", "")
+    print(f"status={r6.status} history_in_prompt={has_history}")
+    assert r6.status == "answered" and has_history
+
     print("\nAll answer-pipeline checks passed.")
 
 
