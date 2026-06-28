@@ -1,0 +1,81 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Brand } from "./Brand";
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+// Nav grows as milestones land. Library ships first.
+const NAV: NavItem[] = [
+  {
+    href: "/library",
+    label: "Library",
+    icon: (
+      <path
+        d="M4 5.5A1.5 1.5 0 0 1 5.5 4H9a1.5 1.5 0 0 1 1.5 1.5V16M4 5.5V16a1.5 1.5 0 0 0 1.5 1.5H9M4 5.5h6.5m0 0V16m0-10.5A1.5 1.5 0 0 1 12 4h2.5A1.5 1.5 0 0 1 16 5.5V16a1.5 1.5 0 0 1-1.5 1.5H12A1.5 1.5 0 0 1 10.5 16"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface">
+      <div className="px-5 py-5">
+        <Link href="/" className="inline-block">
+          <Brand />
+        </Link>
+      </div>
+
+      <nav className="flex flex-col gap-0.5 px-3">
+        {NAV.map((item) => {
+          const active =
+            pathname === item.href || pathname.startsWith(item.href + "/");
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={[
+                "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                active
+                  ? "bg-accent-soft text-accent-ink"
+                  : "text-ink-soft hover:bg-surface-2 hover:text-ink",
+              ].join(" ")}
+            >
+              <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none">
+                {item.icon}
+              </svg>
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="mt-auto px-5 py-4">
+        <div className="rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Demo mode
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] leading-snug text-faint">
+            Synthetic fintech corpus. No login required.
+          </p>
+        </div>
+      </div>
+    </aside>
+  );
+}

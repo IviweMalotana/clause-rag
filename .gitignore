@@ -141,3 +141,18 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# ---- Clause project ----
+# Keep the example env tracked despite .env.* above
+!.env.example
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# uv
+.uv/
