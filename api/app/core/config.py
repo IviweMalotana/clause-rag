@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +16,17 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+psycopg://clause:clause@localhost:5432/clause"
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _use_psycopg_driver(cls, v: str) -> str:
+        # Railway (and most providers) supply a plain postgresql:// URL, which
+        # SQLAlchemy maps to psycopg2. We ship psycopg3, so pin that driver.
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+psycopg://", 1)
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+psycopg://", 1)
+        return v
 
     # Anthropic (answer generation)
     anthropic_api_key: str | None = None
