@@ -131,10 +131,22 @@ def generate_answer(
 ) -> AnswerResult:
     embedder = get_embedder()
     gate = gate_for(embedder)
-    retrieved = retrieve(db, question, embedder=embedder)
+
+    # Capture prior turns before adding this question, for follow-up context.
+    conv = _get_or_create_conversation(db, conversation_id, question)
+    history = [(m.role, m.content) for m in conv.messages if m.role in ("user", "assistant")]
+
+    # Terse follow-ups ("what about for businesses?") retrieve poorly on their
+    # own, so blend in the last user question for context.
+    retrieval_query = question.strip()
+    if history and len(question.split()) <= 6:
+        last_user = next((c for r, c in reversed(history) if r == "user"), None)
+        if last_user:
+            retrieval_query = f"{last_user} {question.strip()}"
+
+    retrieved = retrieve(db, retrieval_query, embedder=embedder)
     supporting = [r for r in retrieved if r.score >= gate][: settings.answer_max_sources]
 
-    conv = _get_or_create_conversation(db, conversation_id, question)
     db.add(Message(conversation_id=conv.id, role="user", content=question.strip()))
     db.flush()
 
@@ -181,7 +193,17 @@ def generate_answer(
         )
 
     try:
-        prompt = f"Question: {question.strip()}\n\nSources:\n{_source_block(supporting)}"
+        history_text = ""
+        if history:
+            turns = [
+                f"{'User' if role == 'user' else 'Clause'}: {content}"
+                for role, content in history[-6:]
+            ]
+            history_text = "Conversation so far:\n" + "\n".join(turns) + "\n\n"
+        prompt = (
+            f"{history_text}Question: {question.strip()}\n\n"
+            f"Sources:\n{_source_block(supporting)}"
+        )
         text = claude(SYSTEM_PROMPT, prompt)
     except Exception as exc:
         db.commit()

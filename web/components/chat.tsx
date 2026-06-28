@@ -1,7 +1,38 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { AnswerResponse, Source } from "@/lib/api";
+
+export function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* clipboard unavailable */
+        }
+      }}
+      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+    >
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+        {copied ? (
+          <path d="M3.5 8.5 6.5 11.5 12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        ) : (
+          <>
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M3.5 10.5A1.5 1.5 0 0 1 2.5 9V3.5A1.5 1.5 0 0 1 4 2h5.5a1.5 1.5 0 0 1 1.5 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          </>
+        )}
+      </svg>
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
 
 const MARKER_RE = /(\[\d+\])/g;
 

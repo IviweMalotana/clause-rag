@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { askQuestion, type AnswerResponse } from "@/lib/api";
-import { CitedText, ConfidenceMeter, SourceCard } from "@/components/chat";
+import { CitedText, ConfidenceMeter, CopyButton, SourceCard } from "@/components/chat";
 import { Skeleton } from "@/components/ui";
 
 interface Exchange {
@@ -56,6 +56,13 @@ export default function AskPage() {
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
+  function newChat() {
+    setExchanges([]);
+    setConversationId(null);
+    setInput("");
+    setActive(null);
+  }
+
   if (exchanges.length === 0) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center">
@@ -92,7 +99,20 @@ export default function AskPage() {
   }
 
   return (
-    <div className="space-y-10 pb-28">
+    <div className="space-y-8 pb-28">
+      <div className="flex items-center justify-between border-b border-border pb-4">
+        <h1 className="text-lg font-semibold tracking-tight text-ink">Ask Clause</h1>
+        <button
+          onClick={newChat}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
+        >
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          New chat
+        </button>
+      </div>
+
       {exchanges.map((ex, idx) => (
         <ExchangeView
           key={idx}
@@ -103,7 +123,7 @@ export default function AskPage() {
         />
       ))}
 
-      <div className="fixed bottom-0 left-60 right-0 border-t border-border bg-bg/90 px-8 py-4 backdrop-blur">
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-bg/90 px-5 py-4 backdrop-blur sm:px-8 lg:left-60">
         <div className="mx-auto max-w-5xl">
           <Composer
             value={input}
@@ -200,11 +220,16 @@ function ExchangeView({
             </Callout>
           )}
           {a?.status === "answered" && (
-            <CitedText
-              text={a.answer}
-              validMarkers={validMarkers}
-              onCite={(m) => onCite(idx, m)}
-            />
+            <>
+              <CitedText
+                text={a.answer}
+                validMarkers={validMarkers}
+                onCite={(m) => onCite(idx, m)}
+              />
+              <div className="mt-3">
+                <CopyButton text={a.answer} />
+              </div>
+            </>
           )}
           {a?.status === "no_answer" && (
             <Callout tone="warn" title="Clause declined to answer">
