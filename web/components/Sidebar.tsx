@@ -13,6 +13,19 @@ interface NavItem {
 // Nav grows as milestones land. Library ships first.
 const NAV: NavItem[] = [
   {
+    href: "/ask",
+    label: "Ask Clause",
+    icon: (
+      <path
+        d="M4 9.5a5.5 5.5 0 0 1 5.5-5.5h1A5.5 5.5 0 0 1 16 9.5v0a5.5 5.5 0 0 1-5.5 5.5H7l-3 2.5V9.5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
+  {
     href: "/library",
     label: "Library",
     icon: (

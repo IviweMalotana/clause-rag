@@ -86,6 +86,59 @@ export async function ingestDocument(form: FormData): Promise<DocumentSummary> {
   return (await res.json()) as DocumentSummary;
 }
 
+export interface Source {
+  marker: number | null;
+  chunk_id: number;
+  document_id: number;
+  document_slug: string;
+  document_title: string;
+  section: string | null;
+  page: number | null;
+  char_start: number;
+  char_end: number;
+  content: string;
+  score: number;
+}
+
+export type AnswerStatus = "answered" | "no_answer" | "needs_key" | "error";
+
+export interface AnswerResponse {
+  status: AnswerStatus;
+  conversation_id: number;
+  message_id: number | null;
+  question: string;
+  answer: string;
+  no_answer: boolean;
+  confidence: number;
+  confidence_label: string;
+  provider: string;
+  model: string;
+  citations: Source[];
+  sources: Source[];
+  error: string | null;
+}
+
+export async function askQuestion(
+  question: string,
+  conversationId?: number | null,
+): Promise<AnswerResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/ask`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ question, conversation_id: conversationId ?? null }),
+  });
+  if (!res.ok) {
+    let detail = "Could not get an answer";
+    try {
+      detail = (await res.json()).detail ?? detail;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(detail, res.status);
+  }
+  return (await res.json()) as AnswerResponse;
+}
+
 export async function getIngestStatus(documentId: number): Promise<IngestStatus> {
   const res = await fetch(`${API_BASE_URL}/api/ingest/${documentId}/status`, {
     cache: "no-store",
