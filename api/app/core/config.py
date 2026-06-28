@@ -25,9 +25,12 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536
 
-    # Retrieval / guardrail
-    retrieval_min_score: float = 0.30
+    # Retrieval / guardrail. retrieval_min_score is an optional override; when
+    # unset, the embedder's per-provider calibrated min_score is used.
+    retrieval_min_score: float | None = None
     retrieval_top_k: int = 6
+    # Max passages to ground an answer on (subset of retrieved that clear the gate).
+    answer_max_sources: int = 5
 
     # API. Both localhost and 127.0.0.1 are allowed so either dev host works.
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"

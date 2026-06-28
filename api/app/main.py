@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import documents, health, ingest
+from app.routers import ask, documents, health, ingest
 
 app = FastAPI(
     title="Clause API",
@@ -23,6 +23,7 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(ingest.router, prefix="/api")
+app.include_router(ask.router, prefix="/api")
 
 
 @app.get("/")

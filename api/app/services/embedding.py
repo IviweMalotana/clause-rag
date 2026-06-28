@@ -42,6 +42,10 @@ class Embedder(ABC):
     provider: str
     model: str
     dim: int
+    # Cosine-similarity floor below which a retrieved chunk is treated as not
+    # supporting an answer. Calibrated per provider since their score scales
+    # differ. Drives the "corpus doesn't support this" guardrail.
+    min_score: float
 
     @abstractmethod
     def embed(self, texts: list[str]) -> list[list[float]]: ...
@@ -60,6 +64,7 @@ class HashedEmbedder(Embedder):
     """
 
     provider = "hashed"
+    min_score = 0.09
 
     def __init__(self, dim: int):
         self.dim = dim
@@ -87,6 +92,7 @@ class HashedEmbedder(Embedder):
 
 class OpenAIEmbedder(Embedder):
     provider = "openai"
+    min_score = 0.24
 
     def __init__(self, api_key: str, model: str, dim: int):
         from openai import OpenAI
