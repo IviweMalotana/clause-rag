@@ -26,6 +26,18 @@ class DocumentDetail(DocumentSummary):
     content: str
 
 
+class IngestStatus(BaseModel):
+    """Live progress of an ingestion job, polled by the upload view."""
+
+    document_id: int
+    slug: str
+    stage: str
+    chunks_done: int
+    chunks_total: int
+    provider: str
+    error: str | None = None
+
+
 class ChunkRef(BaseModel):
     """A retrieved/citable chunk with its locator for highlighting."""
 

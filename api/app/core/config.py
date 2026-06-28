@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     retrieval_min_score: float = 0.30
     retrieval_top_k: int = 6
 
-    # API
-    cors_origins: str = "http://localhost:3000"
+    # API. Both localhost and 127.0.0.1 are allowed so either dev host works.
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     api_port: int = 8000
 
     @property

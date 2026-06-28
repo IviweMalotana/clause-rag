@@ -50,4 +50,48 @@ export function getDocument(slug: string): Promise<DocumentDetail> {
   return getJson<DocumentDetail>(`/api/documents/${slug}`);
 }
 
+export type IngestStage =
+  | "queued"
+  | "chunking"
+  | "embedding"
+  | "indexing"
+  | "done"
+  | "error";
+
+export interface IngestStatus {
+  document_id: number;
+  slug: string;
+  stage: IngestStage;
+  chunks_done: number;
+  chunks_total: number;
+  provider: string;
+  error: string | null;
+}
+
+// Client-side: upload a document for ingestion. Returns the created document.
+export async function ingestDocument(form: FormData): Promise<DocumentSummary> {
+  const res = await fetch(`${API_BASE_URL}/api/ingest`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    let detail = "Upload failed";
+    try {
+      detail = (await res.json()).detail ?? detail;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(detail, res.status);
+  }
+  return (await res.json()) as DocumentSummary;
+}
+
+export async function getIngestStatus(documentId: number): Promise<IngestStatus> {
+  const res = await fetch(`${API_BASE_URL}/api/ingest/${documentId}/status`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new ApiError("Status check failed", res.status);
+  return (await res.json()) as IngestStatus;
+}
+
 export { ApiError };

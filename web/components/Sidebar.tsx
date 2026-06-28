@@ -25,6 +25,19 @@ const NAV: NavItem[] = [
       />
     ),
   },
+  {
+    href: "/ingest",
+    label: "Ingest",
+    icon: (
+      <path
+        d="M10 13V4m0 0L6.5 7.5M10 4l3.5 3.5M4 13v2.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V13"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
 ];
 
 export function Sidebar() {

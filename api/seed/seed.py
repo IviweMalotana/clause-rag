@@ -13,6 +13,8 @@ from sqlalchemy import select
 
 from app.core.db import SessionLocal
 from app.models import Document
+from app.services.embedding import EmbeddingCache, get_embedder
+from app.services.ingest import ingest_document
 
 CORPUS_DIR = Path(__file__).parent / "corpus"
 MANIFEST = CORPUS_DIR / "manifest.json"
@@ -50,11 +52,25 @@ def upsert_documents() -> list[Document]:
     return saved
 
 
+def index_documents(slugs: list[str]) -> None:
+    """Chunk + embed each document so the corpus is query-ready."""
+    embedder = get_embedder()
+    cache = EmbeddingCache()
+    print(f"Indexing with embedding provider: {embedder.provider} ({embedder.model})")
+    with SessionLocal() as db:
+        for slug in slugs:
+            doc = db.scalar(select(Document).where(Document.slug == slug))
+            if doc is None:
+                continue
+            progress = ingest_document(db, doc, embedder=embedder, cache=cache)
+            print(f"  indexed {slug}: {progress.chunks_total} chunks")
+
+
 def main() -> None:
     print("Seeding Clause compliance corpus...")
     docs = upsert_documents()
-    print(f"Done. {len(docs)} documents in the library.")
-    # Milestone 2 wires the ingestion pipeline (chunk + embed) in here.
+    index_documents([d.slug for d in docs])
+    print(f"Done. {len(docs)} documents indexed and query-ready.")
 
 
 if __name__ == "__main__":
