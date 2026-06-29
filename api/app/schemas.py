@@ -98,6 +98,21 @@ class EvalReport(BaseModel):
     guardrail: list[GuardrailItem]
 
 
+class AppConfig(BaseModel):
+    """Public app config the web can read without auth."""
+
+    writes_protected: bool
+    answers_enabled: bool
+    embedding_provider: str
+
+
+class ConversationListItem(BaseModel):
+    id: int
+    title: str
+    message_count: int
+    updated_at: datetime
+
+
 class MessageOut(BaseModel):
     id: int
     role: str

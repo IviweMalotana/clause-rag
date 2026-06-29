@@ -1,14 +1,38 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { askQuestion, type AnswerResponse } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import {
+  conversationExportUrl,
+  deleteConversation,
+  getConversation,
+  listConversations,
+  streamAnswer,
+  type ConversationListItem,
+  type Source,
+  type StreamEvent,
+} from "@/lib/api";
 import { CitedText, ConfidenceMeter, CopyButton, SourceCard } from "@/components/chat";
 import { Skeleton } from "@/components/ui";
 
+type ExchangeStatus =
+  | "pending"      // request sent, awaiting meta/first delta
+  | "streaming"    // receiving deltas
+  | "answered"
+  | "no_answer"
+  | "needs_key"
+  | "error";
+
 interface Exchange {
   question: string;
-  answer?: AnswerResponse;
-  pending: boolean;
+  status: ExchangeStatus;
+  answer: string;
+  sources: Source[];       // supporting passages (with markers when answered)
+  closest: Source[];       // top retrieved (for no_answer fallback display)
+  citations: Source[];     // citations bound to inline [n] markers (after done)
+  confidence: number;
+  confidence_label: string;
+  provider: string;
+  model: string;
   error?: string;
 }
 
@@ -20,33 +44,94 @@ const SUGGESTIONS = [
   "How many vacation days do employees get?",
 ];
 
+function emptyExchange(question: string): Exchange {
+  return {
+    question,
+    status: "pending",
+    answer: "",
+    sources: [],
+    closest: [],
+    citations: [],
+    confidence: 0,
+    confidence_label: "Low",
+    provider: "",
+    model: "",
+  };
+}
+
 export default function AskPage() {
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
+  const [conversationTitle, setConversationTitle] = useState<string>("");
   const [input, setInput] = useState("");
   const [active, setActive] = useState<{ idx: number; marker: number } | null>(null);
-  const busy = exchanges.some((e) => e.pending);
+  const [history, setHistory] = useState<ConversationListItem[]>([]);
+  const busy = exchanges.some((e) => e.status === "pending" || e.status === "streaming");
+
+  const refreshHistory = useCallback(async () => {
+    try {
+      setHistory(await listConversations());
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshHistory();
+  }, [refreshHistory]);
 
   async function ask(question: string) {
     const q = question.trim();
     if (!q || busy) return;
     setInput("");
     const idx = exchanges.length;
-    setExchanges((prev) => [...prev, { question: q, pending: true }]);
+    setExchanges((prev) => [...prev, emptyExchange(q)]);
+
+    const update = (patch: Partial<Exchange>) =>
+      setExchanges((prev) => prev.map((e, i) => (i === idx ? { ...e, ...patch } : e)));
+
     try {
-      const answer = await askQuestion(q, conversationId);
-      setConversationId(answer.conversation_id);
-      setExchanges((prev) =>
-        prev.map((e, i) => (i === idx ? { ...e, answer, pending: false } : e)),
-      );
-    } catch {
-      setExchanges((prev) =>
-        prev.map((e, i) =>
-          i === idx
-            ? { ...e, pending: false, error: "Could not reach the Clause API." }
-            : e,
-        ),
-      );
+      await streamAnswer(q, conversationId, (ev: StreamEvent) => {
+        switch (ev.type) {
+          case "meta":
+            setConversationId(ev.conversation_id);
+            update({
+              status: "streaming",
+              provider: ev.provider,
+              model: ev.model,
+              sources: ev.supporting,
+              closest: ev.retrieved,
+            });
+            break;
+          case "delta":
+            setExchanges((prev) =>
+              prev.map((e, i) =>
+                i === idx ? { ...e, status: "streaming", answer: e.answer + ev.text } : e,
+              ),
+            );
+            break;
+          case "no_answer":
+            update({ status: "no_answer", answer: ev.answer });
+            break;
+          case "needs_key":
+            update({ status: "needs_key" });
+            break;
+          case "done":
+            update({
+              status: "answered",
+              citations: ev.citations,
+              confidence: ev.confidence,
+              confidence_label: ev.confidence_label,
+            });
+            break;
+          case "error":
+            update({ status: "error", error: ev.error });
+            break;
+        }
+      });
+      refreshHistory();
+    } catch (err) {
+      update({ status: "error", error: err instanceof Error ? err.message : "Stream failed" });
     }
   }
 
@@ -59,79 +144,253 @@ export default function AskPage() {
   function newChat() {
     setExchanges([]);
     setConversationId(null);
+    setConversationTitle("");
     setInput("");
     setActive(null);
   }
 
-  if (exchanges.length === 0) {
-    return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center">
-        <div className="w-full max-w-2xl text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-ink">
-            Ask your compliance corpus
-          </h1>
-          <p className="mt-2.5 text-[15px] leading-relaxed text-muted">
-            Clause answers from your documents and cites the exact source passage.
-            If the corpus doesn&apos;t cover it, it says so instead of guessing.
-          </p>
-          <div className="mt-7">
-            <Composer value={input} onChange={setInput} onSubmit={() => ask(input)} busy={busy} autoFocus />
-          </div>
-          <div className="mt-6 flex flex-col gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-faint">
-              Try one
-            </span>
-            <div className="flex flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => ask(s)}
-                  className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-left text-[13px] text-ink-soft transition-colors hover:border-border-strong hover:bg-surface-2"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  async function loadConversation(id: number) {
+    try {
+      const conv = await getConversation(id);
+      const loaded: Exchange[] = [];
+      for (let i = 0; i < conv.messages.length; i++) {
+        const m = conv.messages[i];
+        if (m.role === "user") {
+          const next = conv.messages[i + 1];
+          if (next && next.role === "assistant") {
+            loaded.push({
+              question: m.content,
+              status: next.no_answer ? "no_answer" : "answered",
+              answer: next.content,
+              sources: next.citations,
+              closest: [],
+              citations: next.citations,
+              confidence: next.confidence ?? 0,
+              confidence_label:
+                (next.confidence ?? 0) >= 0.75
+                  ? "High"
+                  : (next.confidence ?? 0) >= 0.5
+                    ? "Medium"
+                    : "Low",
+              provider: "",
+              model: "",
+            });
+            i++; // skip the paired assistant message
+          } else {
+            loaded.push({ ...emptyExchange(m.content), status: "error", error: "No answer recorded" });
+          }
+        }
+      }
+      setExchanges(loaded);
+      setConversationId(conv.id);
+      setConversationTitle(conv.title);
+      setActive(null);
+    } catch {
+      /* ignore */
+    }
   }
 
+  async function removeConversation(id: number) {
+    try {
+      await deleteConversation(id);
+      if (conversationId === id) newChat();
+      refreshHistory();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const empty = exchanges.length === 0;
+
   return (
-    <div className="space-y-8 pb-28">
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <h1 className="text-lg font-semibold tracking-tight text-ink">Ask Clause</h1>
-        <button
-          onClick={newChat}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
-        >
-          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
-            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-          New chat
-        </button>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <HistoryPane
+        items={history}
+        currentId={conversationId}
+        onSelect={loadConversation}
+        onDelete={removeConversation}
+        onNew={newChat}
+      />
+
+      <div>
+        {empty ? (
+          <EmptyAsk input={input} setInput={setInput} ask={ask} busy={busy} />
+        ) : (
+          <div className="space-y-8 pb-28">
+            <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+              <h1 className="truncate text-lg font-semibold tracking-tight text-ink">
+                {conversationTitle || "Ask Clause"}
+              </h1>
+              <div className="flex shrink-0 items-center gap-2">
+                {conversationId != null && (
+                  <a
+                    href={conversationExportUrl(conversationId)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
+                  >
+                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+                      <path
+                        d="M8 2v8m0 0L5 7m3 3 3-3M3 12v1.5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5V12"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Export
+                  </a>
+                )}
+                <button
+                  onClick={newChat}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
+                >
+                  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+                    <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                  New chat
+                </button>
+              </div>
+            </div>
+
+            {exchanges.map((ex, idx) => (
+              <ExchangeView key={idx} ex={ex} idx={idx} active={active} onCite={cite} />
+            ))}
+
+            <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-bg/90 px-5 py-4 backdrop-blur sm:px-8 lg:left-60">
+              <div className="mx-auto max-w-5xl">
+                <Composer
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={() => ask(input)}
+                  busy={busy}
+                  placeholder="Ask a follow-up…"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
 
-      {exchanges.map((ex, idx) => (
-        <ExchangeView
-          key={idx}
-          ex={ex}
-          idx={idx}
-          active={active}
-          onCite={cite}
-        />
-      ))}
+function HistoryPane({
+  items,
+  currentId,
+  onSelect,
+  onDelete,
+  onNew,
+}: {
+  items: ConversationListItem[];
+  currentId: number | null;
+  onSelect: (id: number) => void;
+  onDelete: (id: number) => void;
+  onNew: () => void;
+}) {
+  return (
+    <aside className="hidden h-fit rounded-xl border border-border bg-surface p-3 lg:block">
+      <button
+        onClick={onNew}
+        className="mb-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+      >
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+          <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        New chat
+      </button>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-bg/90 px-5 py-4 backdrop-blur sm:px-8 lg:left-60">
-        <div className="mx-auto max-w-5xl">
+      <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wide text-faint">
+        Recent
+      </p>
+
+      {items.length === 0 ? (
+        <p className="px-2 py-3 text-xs text-faint">No conversations yet.</p>
+      ) : (
+        <ul className="space-y-0.5">
+          {items.map((c) => (
+            <li key={c.id}>
+              <div
+                className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors ${
+                  currentId === c.id ? "bg-accent-soft" : "hover:bg-surface-2"
+                }`}
+              >
+                <button
+                  onClick={() => onSelect(c.id)}
+                  className={`flex-1 truncate text-left text-[13px] ${
+                    currentId === c.id ? "font-medium text-accent-ink" : "text-ink-soft"
+                  }`}
+                  title={c.title}
+                >
+                  {c.title || "New conversation"}
+                </button>
+                <button
+                  onClick={() => onDelete(c.id)}
+                  aria-label="Delete"
+                  className="invisible inline-flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-surface hover:text-danger group-hover:visible"
+                >
+                  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+                    <path
+                      d="M3 4h10M6.5 7v5M9.5 7v5M5 4l.5 9A1 1 0 0 0 6.5 14h3a1 1 0 0 0 1-1l.5-9M6 4V2.5A.5.5 0 0 1 6.5 2h3a.5.5 0 0 1 .5.5V4"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </aside>
+  );
+}
+
+function EmptyAsk({
+  input,
+  setInput,
+  ask,
+  busy,
+}: {
+  input: string;
+  setInput: (v: string) => void;
+  ask: (q: string) => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="flex min-h-[70vh] flex-col items-center justify-center">
+      <div className="w-full max-w-2xl text-center">
+        <h1 className="text-3xl font-semibold tracking-tight text-ink">
+          Ask your compliance corpus
+        </h1>
+        <p className="mt-2.5 text-[15px] leading-relaxed text-muted">
+          Clause answers from your documents and cites the exact source passage.
+          If the corpus doesn&apos;t cover it, it says so instead of guessing.
+        </p>
+        <div className="mt-7">
           <Composer
             value={input}
             onChange={setInput}
             onSubmit={() => ask(input)}
             busy={busy}
-            placeholder="Ask a follow-up…"
+            autoFocus
           />
+        </div>
+        <div className="mt-6 flex flex-col gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-faint">
+            Try one
+          </span>
+          <div className="flex flex-wrap justify-center gap-2">
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => ask(s)}
+                className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-left text-[13px] text-ink-soft transition-colors hover:border-border-strong hover:bg-surface-2"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -201,11 +460,28 @@ function ExchangeView({
   active: { idx: number; marker: number } | null;
   onCite: (idx: number, marker: number) => void;
 }) {
-  const a = ex.answer;
-  const sources = a ? (a.citations.length > 0 ? a.citations : a.sources) : [];
+  const isStreaming = ex.status === "streaming";
+  const showSources = ex.status !== "pending";
+  const sources =
+    ex.citations.length > 0
+      ? ex.citations
+      : ex.sources.length > 0
+        ? ex.sources
+        : ex.closest;
   const validMarkers = new Set(
-    (a?.citations ?? []).map((c) => c.marker).filter((m): m is number => m != null),
+    ex.citations.length > 0
+      ? ex.citations.map((c) => c.marker).filter((m): m is number => m != null)
+      : ex.sources.map((c) => c.marker).filter((m): m is number => m != null),
   );
+
+  const meterAnswer = {
+    status: ex.status,
+    confidence: ex.confidence,
+    confidence_label: ex.confidence_label,
+    provider: ex.provider,
+    citations: ex.citations,
+    sources: ex.sources,
+  };
 
   return (
     <div>
@@ -213,57 +489,62 @@ function ExchangeView({
 
       <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          {ex.pending && <AnswerSkeleton />}
-          {ex.error && (
-            <Callout tone="danger" title="Couldn’t answer">
-              {ex.error}
-            </Callout>
-          )}
-          {a?.status === "answered" && (
+          {ex.status === "pending" && <AnswerSkeleton />}
+          {(ex.status === "answered" || isStreaming) && ex.answer && (
             <>
               <CitedText
-                text={a.answer}
+                text={ex.answer}
                 validMarkers={validMarkers}
                 onCite={(m) => onCite(idx, m)}
               />
-              <div className="mt-3">
-                <CopyButton text={a.answer} />
-              </div>
+              {isStreaming && (
+                <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-accent align-middle" />
+              )}
+              {ex.status === "answered" && (
+                <div className="mt-3">
+                  <CopyButton text={ex.answer} />
+                </div>
+              )}
             </>
           )}
-          {a?.status === "no_answer" && (
+          {ex.status === "no_answer" && (
             <Callout tone="warn" title="Clause declined to answer">
-              {a.answer}
+              {ex.answer}
             </Callout>
           )}
-          {a?.status === "needs_key" && (
+          {ex.status === "needs_key" && (
             <Callout tone="neutral" title="Live answer needs an Anthropic API key">
               Retrieval ran successfully — the passages Clause would ground its
-              answer on are shown here. Set <code className="font-mono text-[13px]">ANTHROPIC_API_KEY</code>{" "}
-              to generate the written answer with inline citations.
+              answer on are shown here. Set{" "}
+              <code className="font-mono text-[13px]">ANTHROPIC_API_KEY</code> on
+              the API to generate the written answer with inline citations.
             </Callout>
           )}
-          {a?.status === "error" && (
+          {ex.status === "error" && (
             <Callout tone="danger" title="Answer generation failed">
-              {a.error ?? "The model call failed. Please try again."}
+              {ex.error ?? "The model call failed. Please try again."}
             </Callout>
           )}
         </div>
 
         <div className="space-y-3 lg:col-span-1">
-          {ex.pending ? (
+          {ex.status === "pending" ? (
             <>
               <Skeleton className="h-24 w-full rounded-xl" />
               <Skeleton className="h-28 w-full rounded-xl" />
             </>
           ) : (
-            a && (
+            showSources && (
               <>
-                <ConfidenceMeter answer={a} />
+                <ConfidenceMeter answer={meterAnswer} />
                 {sources.length > 0 && (
                   <div>
                     <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                      {a.citations.length > 0 ? "Sources used" : "Closest passages"}
+                      {ex.citations.length > 0
+                        ? "Sources used"
+                        : ex.sources.length > 0
+                          ? "Sources considered"
+                          : "Closest passages"}
                     </p>
                     <div className="space-y-2.5">
                       {sources.map((s, i) => (
