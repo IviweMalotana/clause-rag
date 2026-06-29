@@ -50,6 +50,10 @@ api: ## Run the FastAPI dev server (http://localhost:8000)
 seed: ## Seed the synthetic compliance corpus + build the vector index
 	cd $(API_DIR) && uv run python -m seed.seed
 
+.PHONY: test
+test: ## Run the backend pytest suite (needs Postgres + pgvector + clause_test db)
+	cd $(API_DIR) && uv run pytest
+
 # ---------------------------------------------------------------------------
 # Web (Next.js)
 # ---------------------------------------------------------------------------

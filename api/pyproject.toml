@@ -22,6 +22,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "ruff>=0.9",
+    "pytest>=8.3",
+    "httpx>=0.28",
 ]
 
 [tool.uv]
@@ -30,6 +32,10 @@ package = false
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
