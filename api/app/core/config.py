@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     api_port: int = 8000
 
+    # Optional single-token gate for write actions (ingestion). When unset,
+    # writes are open (public demo). When set, the web must send a matching
+    # X-Clause-Token header. Keeps the demo from being abused without auth sprawl.
+    demo_write_token: str | None = None
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

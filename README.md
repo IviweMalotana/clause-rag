@@ -13,8 +13,11 @@ worthless and a hallucinated one is dangerous.
 
 ## What it does
 
-- **Ask (chat):** a Perplexity-style answer view — the answer with inline
-  `[1][2]` citations, a "sources used" list, and an answer-confidence panel.
+- **Ask (chat):** a Perplexity-style answer view — answers **stream in
+  token-by-token** with inline `[1][2]` citations, a "sources used" panel, an
+  answer-confidence meter, a conversation-history sidebar (resume / delete past
+  threads), and a one-click **markdown export** of the conversation with cited
+  sources.
 - **Document library + reader:** a clean library and an in-app reader that
   highlights the cited passage when you arrive from a citation.
 - **Ingestion:** drop a `.md`/`.txt` file (or paste text) and watch it chunk,
@@ -158,7 +161,15 @@ gitignored.
 | `RETRIEVAL_TOP_K` | api | passages retrieved per question |
 | `RETRIEVAL_MIN_SCORE` | api | optional guardrail threshold override |
 | `CORS_ORIGINS` | api | allowed web origins (comma-separated) |
+| `DEMO_WRITE_TOKEN` | api | optional; when set, ingestion requires `X-Clause-Token` matching this value |
 | `NEXT_PUBLIC_API_BASE_URL` | web | base URL of the API |
+
+## Write protection (optional)
+
+By default the demo is fully open. To prevent random visitors from ingesting
+documents, set `DEMO_WRITE_TOKEN` on the API to any string. The web app will
+detect that writes are protected and prompt for the token on the Ingest page;
+it's stored in browser `localStorage` only.
 
 ## Quality / trust
 

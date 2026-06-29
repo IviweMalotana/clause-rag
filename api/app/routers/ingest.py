@@ -7,11 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.security import require_write_token
 from app.models import Document
 from app.schemas import DocumentSummary, IngestStatus
 from app.services.ingest import get_progress, run_ingest_job
 
-router = APIRouter(prefix="/ingest", tags=["ingest"])
+# All routes here are write actions, so the whole router gets the token gate
+# (a no-op when DEMO_WRITE_TOKEN is unset).
+router = APIRouter(prefix="/ingest", tags=["ingest"], dependencies=[Depends(require_write_token)])
 
 _ALLOWED_SUFFIXES = (".md", ".markdown", ".txt")
 

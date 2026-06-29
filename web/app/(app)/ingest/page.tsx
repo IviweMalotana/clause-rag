@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
+  clearWriteToken,
+  getConfig,
   getIngestStatus,
+  getWriteToken,
   ingestDocument,
+  setWriteToken,
   type IngestStatus,
 } from "@/lib/api";
 import { PageHeader } from "@/components/ui";
@@ -42,6 +46,30 @@ export default function IngestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [writesProtected, setWritesProtected] = useState(false);
+  const [hasToken, setHasToken] = useState(false);
+  const [tokenInput, setTokenInput] = useState("");
+
+  useEffect(() => {
+    getConfig()
+      .then((c) => setWritesProtected(c.writes_protected))
+      .catch(() => {});
+    setHasToken(!!getWriteToken());
+  }, []);
+
+  function saveToken() {
+    if (!tokenInput.trim()) return;
+    setWriteToken(tokenInput.trim());
+    setHasToken(true);
+    setTokenInput("");
+    setError(null);
+  }
+
+  function forgetToken() {
+    clearWriteToken();
+    setHasToken(false);
+  }
 
   const onFile = useCallback(
     (f: File | null) => {
@@ -93,6 +121,10 @@ export default function IngestPage() {
       poll(doc.id);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Something went wrong.");
+      if (e instanceof ApiError && e.status === 401) {
+        clearWriteToken();
+        setHasToken(false);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -115,9 +147,49 @@ export default function IngestPage() {
       <PageHeader
         title="Ingest a document"
         description="Drop a compliance document and Clause will chunk it into citable passages, embed each one, and index it for retrieval."
-      />
+      >
+        {writesProtected && hasToken && (
+          <button
+            onClick={forgetToken}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:bg-surface-2"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            Token set · forget
+          </button>
+        )}
+      </PageHeader>
 
-      {!status && (
+      {writesProtected && !hasToken && (
+        <div className="rounded-xl border border-warn/30 bg-warn-soft p-5">
+          <h3 className="text-sm font-semibold text-warn">Write actions are protected</h3>
+          <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
+            Ingestion requires a demo write token (set as{" "}
+            <code className="font-mono text-[13px]">DEMO_WRITE_TOKEN</code> on the API).
+            Paste it once — it&apos;s stored only in your browser.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="password"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveToken();
+              }}
+              placeholder="Paste your write token…"
+              className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent"
+            />
+            <button
+              onClick={saveToken}
+              disabled={!tokenInput.trim()}
+              className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Unlock
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(!writesProtected || hasToken) && !status && (
         <div className="space-y-5">
           <div className="inline-flex rounded-lg border border-border bg-surface p-0.5 text-sm">
             {(["file", "text"] as const).map((m) => (

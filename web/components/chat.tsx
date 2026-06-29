@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { AnswerResponse, Source } from "@/lib/api";
+import type { Source } from "@/lib/api";
+
+export interface ConfidenceInfo {
+  status: "answered" | "no_answer" | "needs_key" | "error" | "streaming" | "pending";
+  confidence: number;
+  confidence_label: string;
+  provider: string;
+  citations: Source[];
+  sources: Source[];
+}
 
 export function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -80,7 +89,7 @@ export function CitedText({
   );
 }
 
-export function ConfidenceMeter({ answer }: { answer: AnswerResponse }) {
+export function ConfidenceMeter({ answer }: { answer: ConfidenceInfo }) {
   const declined = answer.status === "no_answer";
   const pct = Math.round(answer.confidence * 100);
   const tone =
