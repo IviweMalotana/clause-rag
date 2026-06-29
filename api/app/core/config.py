@@ -30,7 +30,9 @@ class Settings(BaseSettings):
 
     # Anthropic (answer generation)
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-sonnet-4-6"
+    # Haiku 4.5 is the cheapest current Claude — good for the demo's volume.
+    # Bump to claude-sonnet-4-6 or claude-opus-4-8 for higher answer quality.
+    anthropic_model: str = "claude-haiku-4-5-20251001"
 
     # OpenAI (embeddings only)
     openai_api_key: str | None = None

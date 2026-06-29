@@ -155,7 +155,7 @@ gitignored.
 | --- | --- | --- |
 | `DATABASE_URL` | api | Postgres + pgvector connection |
 | `ANTHROPIC_API_KEY` | api | Claude answer generation |
-| `ANTHROPIC_MODEL` | api | defaults to `claude-sonnet-4-6` |
+| `ANTHROPIC_MODEL` | api | defaults to `claude-haiku-4-5-20251001` (cheapest); set to `claude-sonnet-4-6` or `claude-opus-4-8` for higher quality |
 | `OPENAI_API_KEY` | api | embeddings (`text-embedding-3-small`) |
 | `EMBEDDING_MODEL` / `EMBEDDING_DIM` | api | embedding model + dimension (1536) |
 | `RETRIEVAL_TOP_K` | api | passages retrieved per question |
