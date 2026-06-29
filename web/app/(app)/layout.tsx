@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
+import { CommandPalette } from "@/components/CommandPalette";
 
 // Shell for the operator tools (Ask, Library, Ingest, Trust).
 export default function AppLayout({
@@ -16,6 +17,7 @@ export default function AppLayout({
           <div className="mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-8">{children}</div>
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

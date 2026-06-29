@@ -16,7 +16,13 @@ export function Sidebar() {
         <NavList />
       </div>
 
-      <div className="mt-auto px-5 py-4">
+      <div className="mt-auto space-y-2 px-5 py-4">
+        <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] text-muted">
+          <span>Quick ask</span>
+          <kbd className="rounded-md border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px] text-faint">
+            ⌘K
+          </kbd>
+        </div>
         <DemoBadge />
       </div>
     </aside>
