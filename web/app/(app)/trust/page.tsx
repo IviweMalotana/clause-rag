@@ -76,11 +76,16 @@ export default async function TrustPage() {
   let report;
   try {
     report = await getEvals();
-  } catch {
+  } catch (err) {
+    const isServerError =
+      err instanceof Error && "status" in err && (err as { status: number }).status >= 500;
+    const description = isServerError
+      ? "The eval run failed on the server — check that API keys are configured and the backend logs for details."
+      : "Could not reach the Clause API. Start the backend and refresh.";
     return (
       <div className="space-y-6">
         <PageHeader title="Trust & evals" />
-        <ErrorState description="Could not run the evals — the Clause API is unreachable. Start the backend and refresh." />
+        <ErrorState description={description} />
       </div>
     );
   }
