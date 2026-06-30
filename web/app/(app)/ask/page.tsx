@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   conversationExportUrl,
   deleteConversation,
@@ -60,6 +61,16 @@ function emptyExchange(question: string): Exchange {
 }
 
 export default function AskPage() {
+  return (
+    <Suspense fallback={null}>
+      <AskInner />
+    </Suspense>
+  );
+}
+
+function AskInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [conversationTitle, setConversationTitle] = useState<string>("");
@@ -67,6 +78,7 @@ export default function AskPage() {
   const [active, setActive] = useState<{ idx: number; marker: number } | null>(null);
   const [history, setHistory] = useState<ConversationListItem[]>([]);
   const busy = exchanges.some((e) => e.status === "pending" || e.status === "streaming");
+  const consumedQueryRef = useRef(false);
 
   const refreshHistory = useCallback(async () => {
     try {
@@ -79,6 +91,16 @@ export default function AskPage() {
   useEffect(() => {
     refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (!q || consumedQueryRef.current) return;
+    consumedQueryRef.current = true;
+    // Clear the param so a page reload doesn't re-ask.
+    router.replace("/ask");
+    ask(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function ask(question: string) {
     const q = question.trim();

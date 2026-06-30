@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.rate_limit import ask_limiter, limiter_dependency
 from app.models import Chunk, Conversation, Document, Message
 from app.schemas import (
     AnswerResponse,
@@ -22,8 +23,10 @@ from app.services.answer_stream import stream_answer
 
 router = APIRouter(tags=["ask"])
 
+_ask_throttle = Depends(limiter_dependency(ask_limiter))
 
-@router.post("/ask", response_model=AnswerResponse)
+
+@router.post("/ask", response_model=AnswerResponse, dependencies=[_ask_throttle])
 def ask(payload: AskRequest, db: Session = Depends(get_db)) -> AnswerResponse:
     question = payload.question.strip()
     if not question:
@@ -67,7 +70,7 @@ def _citation_sources(db: Session, message: Message) -> list[Source]:
     return sources
 
 
-@router.post("/ask/stream")
+@router.post("/ask/stream", dependencies=[_ask_throttle])
 def ask_stream(payload: AskRequest, db: Session = Depends(get_db)) -> StreamingResponse:
     """Server-Sent Events stream for an answer (delta tokens as they arrive)."""
     question = payload.question.strip()

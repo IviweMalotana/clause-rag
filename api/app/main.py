@@ -1,10 +1,18 @@
 """FastAPI application entrypoint for Clause."""
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.middleware import RequestIdMiddleware
 from app.routers import ask, documents, evals, health, ingest
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 app = FastAPI(
     title="Clause API",
@@ -18,7 +26,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-Id"],
 )
+app.add_middleware(RequestIdMiddleware)
 
 app.include_router(health.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")

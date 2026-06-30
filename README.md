@@ -155,7 +155,7 @@ gitignored.
 | --- | --- | --- |
 | `DATABASE_URL` | api | Postgres + pgvector connection |
 | `ANTHROPIC_API_KEY` | api | Claude answer generation |
-| `ANTHROPIC_MODEL` | api | defaults to `claude-sonnet-4-6` |
+| `ANTHROPIC_MODEL` | api | defaults to `claude-haiku-4-5-20251001` (cheapest); set to `claude-sonnet-4-6` or `claude-opus-4-8` for higher quality |
 | `OPENAI_API_KEY` | api | embeddings (`text-embedding-3-small`) |
 | `EMBEDDING_MODEL` / `EMBEDDING_DIM` | api | embedding model + dimension (1536) |
 | `RETRIEVAL_TOP_K` | api | passages retrieved per question |
@@ -174,12 +174,18 @@ it's stored in browser `localStorage` only.
 ## Quality / trust
 
 The `/trust` page runs a curated eval suite live against the retriever and shows
-the no-answer guardrail declining out-of-corpus questions. A backend script also
-exercises the answer pipeline end-to-end:
+the no-answer guardrail declining out-of-corpus questions.
+
+A pytest suite covers chunking offset fidelity, the embedding cache, retrieval
++ guardrail, the answer pipeline (with stubbed model), every HTTP endpoint, and
+the write-token gate. CI runs it on every PR.
 
 ```bash
-cd api && uv run python -m scripts.validate_answer
+make test                # backend pytest (needs Postgres + clause_test db)
 ```
+
+The test fixtures spin a real pgvector schema via Alembic against a dedicated
+`clause_test` database, so the tests exercise the same path the app uses.
 
 ## Notes
 

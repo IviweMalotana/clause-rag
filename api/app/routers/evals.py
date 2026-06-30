@@ -1,6 +1,6 @@
 """Trust/eval endpoint: runs the curated eval set against the live retriever."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -40,33 +40,39 @@ def run_evals(db: Session = Depends(get_db)) -> EvalReport:
         for slug, title in db.execute(select(Document.slug, Document.title)).all()
     }
 
-    items: list[EvalItem] = []
-    passed = 0
-    for ev in EVAL_SET:
-        results = retrieve(db, ev["question"], embedder=embedder, top_k=3)
-        top = results[0]
-        ok = (
-            top.document_slug == ev["expected_slug"]
-            and ev["expected_section"].lower() in (top.section or "").lower()
-        )
-        passed += ok
-        items.append(
-            EvalItem(
-                question=ev["question"],
-                expected_document=title_by_slug.get(ev["expected_slug"], ev["expected_slug"]),
-                expected_section=ev["expected_section"],
-                passed=ok,
-                retrieved=_to_source(top),
+    try:
+        items: list[EvalItem] = []
+        passed = 0
+        for ev in EVAL_SET:
+            results = retrieve(db, ev["question"], embedder=embedder, top_k=3)
+            top = results[0]
+            ok = (
+                top.document_slug == ev["expected_slug"]
+                and ev["expected_section"].lower() in (top.section or "").lower()
             )
-        )
+            passed += ok
+            items.append(
+                EvalItem(
+                    question=ev["question"],
+                    expected_document=title_by_slug.get(ev["expected_slug"], ev["expected_slug"]),
+                    expected_section=ev["expected_section"],
+                    passed=ok,
+                    retrieved=_to_source(top),
+                )
+            )
 
-    guardrail: list[GuardrailItem] = []
-    for q in GUARDRAIL_EXAMPLES:
-        results = retrieve(db, q, embedder=embedder, top_k=1)
-        top_score = results[0].score if results else 0.0
-        guardrail.append(
-            GuardrailItem(question=q, declined=top_score < gate, top_score=round(top_score, 3))
-        )
+        guardrail: list[GuardrailItem] = []
+        for q in GUARDRAIL_EXAMPLES:
+            results = retrieve(db, q, embedder=embedder, top_k=1)
+            top_score = results[0].score if results else 0.0
+            guardrail.append(
+                GuardrailItem(question=q, declined=top_score < gate, top_score=round(top_score, 3))
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Eval run failed — check that your embedding API key is valid. ({type(exc).__name__})",
+        ) from exc
 
     return EvalReport(
         passed=passed,
