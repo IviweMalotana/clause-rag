@@ -129,7 +129,7 @@ Set these variables:
 | `DATABASE_URL` | Railway Postgres URL (a plain `postgresql://…` is auto-converted to the psycopg3 driver) |
 | `ANTHROPIC_API_KEY` | Anthropic key (required for written answers) |
 | `OPENAI_API_KEY` | OpenAI key (required to embed at ingest/seed time) |
-| `CORS_ORIGINS` | your Vercel URL, e.g. `https://clause.vercel.app` |
+| `CORS_ORIGINS` | `https://clause.victorthelabel.com` |
 
 After the first deploy, seed the corpus once (Railway shell or one-off command):
 
@@ -143,7 +143,7 @@ Import the repo, set the **root directory** to `web`, and add:
 
 | Variable | Value |
 | --- | --- |
-| `NEXT_PUBLIC_API_BASE_URL` | your Railway API URL, e.g. `https://clause-api.up.railway.app` |
+| `NEXT_PUBLIC_API_BASE_URL` | Railway API URL, e.g. `https://clause-api.up.railway.app` |
 
 ## Environment variables
 
